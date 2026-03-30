@@ -4,7 +4,7 @@ on:
 
 jobs:
   run-token-gen:
-    runs-on: windows-latest # Your "Lightweight" environment
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -12,20 +12,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          cache: 'pip'
 
       - name: Install Dependencies
-        run: pip install zendriver requests
+        run: pip install -r requirements.txt
 
       - name: Run Generator
         run: python zen-token.py
         env:
           PYTHONUTF8: 1
           PYTHONUNBUFFERED: 1
+          HEADLESS: "false"

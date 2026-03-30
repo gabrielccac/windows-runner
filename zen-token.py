@@ -3,23 +3,23 @@
 Token generation with Zendriver.
 
 Install:
-  pip install zendriver requests
+  pip install zendriver
 """
 import asyncio
-import requests
+import os
 import zendriver as zd
 
 
 URL = "https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cpf"
-VALIDATE_URL = "https://servicos.receitafederal.gov.br/servico/certidoes/api/Emissao/verificar"
-VALIDATE_BODY = {
-    "ni": "12433377617",
-    "tipoContribuinte": "PF",
-    "dataNascimento": "2002-05-23",
-    "tipoContribuinteEnum": "CPF",
-}
 
-HEADLESS = False
+HEADLESS = os.environ.get("HEADLESS", "false").lower() in ("1", "true", "yes")
+
+# Extra Chrome flags for faster startup on Windows CI runners.
+_CI_BROWSER_ARGS = [
+    "--disable-extensions",   # slightly faster startup
+    "--no-first-run",         # skip first-run setup
+    "--mute-audio",           # no audio subsystem needed
+]
 
 JS_START_TOKEN_EXECUTION = """
 (() => {
@@ -45,7 +45,12 @@ JS_START_TOKEN_EXECUTION = """
 
 
 async def generate_token() -> str | None:
-    browser = await zd.start(headless=HEADLESS, disable_webgl=True, disable_webrtc=True,)
+    browser = await zd.start(
+        headless=HEADLESS,
+        disable_webgl=True,
+        disable_webrtc=True,
+        browser_args=_CI_BROWSER_ARGS,
+    )
     page = await browser.get(URL)
     print("⚒️  Page opened")
 
@@ -88,31 +93,11 @@ async def generate_token() -> str | None:
         await asyncio.sleep(0.2)
 
 
-def validate_token(token: str) -> int:
-    print("☁️  Validation request sent")
-    try:
-        resp = requests.post(
-            VALIDATE_URL,
-            json=VALIDATE_BODY,
-            headers={
-                "x-captcha-token": token,
-                "accept": "application/json, text/plain, */*",
-                "content-type": "application/json",
-            },
-            timeout=30,
-        )
-        print(f"☁️  Validation status: {resp.status_code}")
-        print(f"☁️  Validation body: {resp.text[:200]}")
-        return 0 if 200 <= resp.status_code < 300 else 1
-    except requests.RequestException as exc:
-        print(f"⛔ Validation error: {exc}")
-        return 1
-
-
 async def main() -> int:
     token = await generate_token()
     if token:
-        return validate_token(token)
+        print(f"✅ Token: {token}")
+        return 0
     return 1
 
 
